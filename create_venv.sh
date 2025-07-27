@@ -1,5 +1,12 @@
-python -m venv .venv
-source .venv/bin/activate
-uv pip install --upgrade pip
-uv pip install uv
-uv venv sync
+
+VENV_NAME=".venv"
+EDITABLE="true"
+
+echo "Using '$VENV_NAME' for virtual environment."
+
+UV_EXTRAS=""
+if [ "$EDITABLE" == "false" ]; then
+    UV_EXTRAS="--no-editable"
+fi
+
+uv sync --frozen --active $UV_EXTRAS --all-packages

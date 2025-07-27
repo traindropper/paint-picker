@@ -11,6 +11,6 @@ requires-python = ">=3.13"
 dependencies = [
     "matplotlib>=3.10.3",
     "numpy>=2.3.2",
-    "opencv-contrib-python>=4.11.0.86", # cv2
-    "pytesseract>=0.3.13",
+    "opencv-contrib-python>=4.11.0.86", # cv2, apt-get install libgl1
+    "pytesseract>=0.3.13", # apt-get install tesseract-ocr
 ]
