@@ -1,0 +1,17 @@
+CUDA version is slightly more recent for pytorch
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+# python -m ensurepip
+# uv pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation 
+had to uninstall and reinstall pytorch for some reason, same for opencv
+
+PADDLE ROUTE
+
+Install paddle
+uv pip install paddlepaddle-gpu==3.1.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+uv pip install setup_tools
+
+install paddle OCR
+uv pip install paddleocr
+
+wget https://paddledet.bj.bcebos.com/models/yolov3_mobilenet_v1_270e_coco.pdparams
