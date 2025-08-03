@@ -1,5 +1,6 @@
+Just go down this list in install order...
 CUDA version is slightly more recent for pytorch
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # python -m ensurepip
 # uv pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation 
@@ -8,10 +9,11 @@ had to uninstall and reinstall pytorch for some reason, same for opencv
 PADDLE ROUTE
 
 Install paddle
-uv pip install paddlepaddle-gpu==3.1.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
-uv pip install setup_tools
-
+pip3 install paddlepaddle-gpu==3.1.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+Reinstall torch, we need torch 2.7.1+cu128, and paddle doesn't know this
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip3 uninstall paddleocr  # we need paddleocr v 3.1.0, it installed 2.10.0
+pip3 install paddleocr 
 install paddle OCR
-uv pip install paddleocr
 
-wget https://paddledet.bj.bcebos.com/models/yolov3_mobilenet_v1_270e_coco.pdparams
+pip3 install uvicorn

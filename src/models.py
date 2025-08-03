@@ -1,8 +1,8 @@
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase, Session
 from sqlalchemy import String, Integer, ForeignKey
-from base_classes import ManufacturerEnum, PaintMediumEnum, FinishEnum
-from database_helpers import normalize_string
+from src.base_classes import ManufacturerEnum, PaintMediumEnum, FinishEnum
+from src.database_helpers import normalize_string
 from dataclasses import dataclass
 
 
@@ -84,7 +84,9 @@ def paint_to_dto(paint: Paint) -> PaintUpdateDTO:
 def create_paint_from_dto(dto: PaintDTO, session: Session) -> Paint:
     return Paint(
         color=dto.color,
+        normalized_color=normalize_string(dto.color),
         manufacturer=session.query(Manufacturer).filter_by(normalized_name=normalize_string(dto.manufacturer.value)).one(),
         finish=session.query(Finish).filter_by(normalized_name=normalize_string(dto.finish.value)).one() if dto.finish else None,
         paint_medium=session.query(PaintMedium).filter_by(normalized_name=normalize_string(dto.paint_medium.value)).one() if dto.paint_medium else None,
     )
+

@@ -5,8 +5,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, Query
 import logging
 
-from models import Manufacturer, Finish, PaintMedium, PaintDTO, PaintUpdateDTO, Paint
-from database_helpers import add_com_ref, normalize_string
+from src.models import Manufacturer, Finish, PaintMedium, PaintDTO, PaintUpdateDTO, Paint
+from src.database_helpers import add_com_ref, normalize_string
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -127,13 +127,15 @@ def adjust_paint_quantity(
             ).first()
         
         conditions_list: list[Any] = [
-            Paint.manufacturer == manufacturer,
+            Paint.manufacturer_id == manufacturer.id,
             Paint.normalized_color == normalize_string(paint_data.color),
-            Paint.finish == finish if finish else None,
-            Paint.paint_medium == paint_medium if paint_medium else None,
         ]
+        if finish:
+            conditions_list.append(Paint.finish_id == finish.id)
+        if paint_medium:
+            conditions_list.append(Paint.paint_medium_id == paint_medium.id)
 
-        paint: Paint | None = query_condition_list(session, Paint, conditions_list).first()
+        paint: Paint | None = session.query(Paint).filter(*conditions_list).first()
 
         if not paint:
             return False

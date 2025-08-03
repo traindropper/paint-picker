@@ -1,20 +1,21 @@
 from pathlib import Path
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 from paddleocr import PaddleOCR
 from torchvision import transforms
 import re
 import string
-from models import PaintDTO, Base
-from base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
+from src.models import PaintDTO, Base
+from src.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
 import logging
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import sessionmaker, session as session_utils
-from update_db import upsert_paint
+from src.update_db import upsert_paint
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
-from detectron2 import model_zoo
+from detectron2 import model_zoo 
+from src.helpers import get_font_path
 
 home: Path = Path.home()
 ocr = PaddleOCR(
@@ -84,6 +85,51 @@ def flexible_match(pattern: str, text: str) -> str:
     return re.search(regex, text, re.IGNORECASE)
 
 
+def plot_ocr_boxes(image: np.ndarray, ocr_results: list[dict], save_path: Path) -> None:
+    """Plot OCR boxes and text on the image using PIL for consistency."""
+    # Convert to RGB for PIL
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(image_rgb)
+    draw = ImageDraw.Draw(pil_img, "RGBA")
+
+    # support for Japanese characters
+    font_size = 24
+    font = ImageFont.truetype(get_font_path(), font_size)
+
+    for result in ocr_results:
+        box = result["box"]
+        # box_points = [(int(x), int(y)) for x, y in box]
+        # Draw polygon (box)
+        # draw.line(box_points + [box_points[0]], fill=(0, 255, 0), width=2)
+        # Draw text above the top-left corner
+        top_left = get_top_left(box)
+        text: str = f"{result['text']} ({round(result['score'], 3)})" 
+        
+        # Draw rectangle around the text
+        bbox = font.getbbox(text)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        text_position = (top_left[0], top_left[1] - font_size - 4)
+        x = text_position[0]
+        y = text_position[1]
+
+        # Add margin around the rectangle
+        margin = 4
+        rect_coords = [x - margin, y, x + text_w + margin, y + text_h + margin + 4]
+        draw.rectangle(rect_coords, fill=(0, 0, 0, 180))  # semi-transparent black background
+        
+        draw.text(
+            text_position,
+            text,
+            font=font,
+            fill=(255, 255, 255, 255)  # white text with full opacity
+        )
+
+    # Save as BGR for OpenCV compatibility
+    result_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGBA2BGR)
+    cv2.imwrite(str(save_path), result_img)
+    LOGGER.info("Saved OCR boxes to %s", save_path.name)
+
 def check_image(file_path: str) -> bool:
     """Ensure the file can be opened and read with PIL and OpenCV."""
     # Check PIL.
@@ -145,54 +191,7 @@ def parse_test_directory():
     paint_list: list[PaintDTO] = []
 
     for image_path in image_paths:
-        if not check_image(str(image_path)):
-            LOGGER.warning("%s is not a usable image, skipping...", image_path)
-            continue
-
-        opening: np.ndarray = load_and_smart_crop(image_path)    
-        
-        result = ocr.predict(opening, text_rec_score_thresh=0.8, use_doc_unwarping=True)
-        sorted_results = sort_ocr_results(result[0])  # Only ever using a one element list
-        manufacturer: ManufacturerEnum | None = None
-        color: str | None = None
-        finish: FinishEnum | None = None
-        paint_medium: PaintMediumEnum | None = None
-        for result in sorted_results:
-            text: str = result["text"].lower()
-            if flexible_match(MISTER_COLOR, text):
-                manufacturer = ManufacturerEnum.MR_HOBBY
-                paint_medium = PaintMediumEnum.LACQUER
-            
-            # When mister color is verified, look for finish and color
-            if manufacturer is ManufacturerEnum.MR_HOBBY: 
-                if flexible_match(SEMI_GLOSS_JP, text):  # Must check semi-gloss first. it contains substring gloss
-                    finish=FinishEnum.SEMI_GLOSS
-                elif flexible_match(GLOSS_JP, text):
-                    finish=FinishEnum.GLOSS
-                elif flexible_match(FLAT_JP, text):
-                    finish=FinishEnum.MATTE
-                
-                # When we know the finish, we're near the end of the label
-                # What remains should be the color
-                elif finish:
-                    if color:
-                        if manufacturer is ManufacturerEnum.MR_HOBBY:
-                            if "gloss" in text or "flat" in text or "semi" in text or "primary" in text:
-                                # english paint finishes/primaries show up in this area too, skip them 
-                                continue
-                            else:
-                                color = f"{color} {text}"
-                        else:
-                            color = f"{color} {text}"
-                    else:
-                        color = text
-    
-        if not color:
-            LOGGER.warning("Failed to extract color for image: %s", image_path)
-            continue
-
-        paint_dto: PaintDTO = PaintDTO(manufacturer=manufacturer, color=color, finish=finish, paint_medium=paint_medium)
-        LOGGER.info("Appended DTO for ingestion: %s:", paint_dto)
+        paint_dto: PaintDTO | None = parse_image(image_path)
         paint_list.append(paint_dto)
 
     if paint_list:
@@ -203,3 +202,72 @@ def parse_test_directory():
         for paint in paint_list:
             upsert_paint(session, paint)
         session_utils.close_all_sessions()
+
+
+def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO | None:
+    """Parse a single image and return a PaintDTO."""
+    if not check_image(str(image_path)):
+        LOGGER.warning("%s is not a usable image, skipping...", image_path)
+        return None
+    
+    opening: np.ndarray = load_and_smart_crop(image_path)    
+
+    result = ocr.predict(opening, text_rec_score_thresh=0.8, use_doc_unwarping=True)
+    sorted_results = sort_ocr_results(result[0])  # Only ever using a one element list
+    if save_ocr_path:
+        plot_ocr_boxes(opening, sorted_results, save_ocr_path)
+
+    if not sorted_results:
+        LOGGER.warning("No OCR results found in %s", image_path.name)
+        return None
+
+    # Initialize paint DTO
+    manufacturer: ManufacturerEnum | None = None
+    color: str | None = None
+    finish: FinishEnum | None = None
+    paint_medium: PaintMediumEnum | None = None
+
+    for result in sorted_results:
+        text: str = result["text"].lower()
+        if flexible_match(MISTER_COLOR, text):
+            manufacturer = ManufacturerEnum.MR_HOBBY
+            paint_medium = PaintMediumEnum.LACQUER
+        
+        # When mister color is verified, look for finish and color
+        if manufacturer is ManufacturerEnum.MR_HOBBY: 
+            if flexible_match(SEMI_GLOSS_JP, text):  # Must check semi-gloss first. it contains substring gloss
+                finish=FinishEnum.SEMI_GLOSS
+            elif flexible_match(GLOSS_JP, text):
+                finish=FinishEnum.GLOSS
+            elif flexible_match(FLAT_JP, text):
+                finish=FinishEnum.MATTE
+            
+            # When we know the finish, we're near the end of the label
+            # What remains should be the color
+            elif finish:
+                if color:
+                    if manufacturer is ManufacturerEnum.MR_HOBBY:
+                        if "gloss" in text or "flat" in text or "semi" in text or "primary" in text:
+                            # english paint finishes/primaries show up in this area too, skip them 
+                            continue
+                        else:
+                            color = f"{color} {text}"
+                    else:
+                        color = f"{color} {text}"
+                else:
+                    color = text
+
+    return PaintDTO(manufacturer=manufacturer, color=color, finish=finish, paint_medium=paint_medium)
+
+def parse_image_as_string(image_path: Path, save_ocr_path: Path | None = None) -> dict[str, str | None]:
+    """Parse an image and return a dictionary with paint details as strings."""
+    paint_dto: PaintDTO | None = parse_image(image_path, save_ocr_path=save_ocr_path)
+    if not paint_dto:
+        return {"manufacturer": None, "color": None, "finish": None, "paint_medium": None}
+
+    return {
+        "manufacturer": paint_dto.manufacturer.value if paint_dto.manufacturer else None,
+        "color": paint_dto.color,
+        "finish": paint_dto.finish.value if paint_dto.finish else None,
+        "paint_medium": paint_dto.paint_medium.value if paint_dto.paint_medium else None
+    }
