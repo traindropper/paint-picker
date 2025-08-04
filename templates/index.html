@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Table of My Paints</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        table { border-collapse: collapse; width: 60%; margin: 2em auto; }
+        th, td { border: 1px solid #ccc; padding: 0.5em 1em; text-align: left; }
+        th { background-color: #f0f0f0; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Paints Inventory</h1>
+    <div id="table-container"></div>
+    <script>
+        d3.json("/paints").then(function(data) {
+            var table = d3.select("#table-container").append("table");
+            var thead = table.append("thead");
+            var tbody = table.append("tbody");
+            var columns = ["id", "color", "manufacturer", "quantity", "finish", "medium"];
+            thead.append("tr")
+                .selectAll("th")
+                .data(columns)
+                .enter()
+                .append("th")
+                .text(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
+            var rows = tbody.selectAll("tr")
+                .data(data)
+                .enter()
+                .append("tr");
+            rows.selectAll("td")
+                .data(function(row) {
+                    return columns.map(function(column) {
+                        return {column: column, value: row[column]};
+                    });
+                })
+                .enter()
+                .append("td")
+                .text(function(d) { return d.value; });
+        });
+    </script>
+</body>
+</html>

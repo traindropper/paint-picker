@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
-from fastapi import FastAPI, Request, Form, UploadFile, File
+from typing import Any
+from fastapi import FastAPI, Request, Form, UploadFile, File, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -11,13 +12,13 @@ from src.paint_parser import parse_image_as_string
 from src.update_db import upsert_paint
 from src.database_helpers import normalize_to_enum
 from src.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
-from urllib.parse import urlencode
 
 
 DATABASE_URL: str = "sqlite:///./paintdb.sqlite3"
 engine: Engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
+
 UPLOAD_DIR: Path = Path("static/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OCR_DIR: Path = Path("static/ocr")
@@ -28,9 +29,27 @@ templates= Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 session_state: dict = {} # Placeholder for session management
 
-@app.get("/")
-async def root():
-    return RedirectResponse("/upload_form", status_code=303)
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/paints")
+async def get_paints(request: Request):
+    paint_list: list[dict[str, Any]] = [] 
+    with Session(engine) as session:
+        paints: list[Paint] = session.query(Paint).all()
+        for paint in paints:
+            print(paint)
+            paint_data: dict[str, Any] = {
+                "id": paint.id,
+                "color": paint.color,
+                "manufacturer": paint.manufacturer.name,
+                "finish": paint.finish.name if paint.finish else None,
+                "medium": paint.paint_medium.name if paint.paint_medium else None,
+                "quantity": paint.quantity_owned
+            }
+            paint_list.append(paint_data)
+    return paint_list
 
 @app.get("/upload_form", name="upload_form", response_class=HTMLResponse)
 async def upload_form(request: Request) -> HTMLResponse:
