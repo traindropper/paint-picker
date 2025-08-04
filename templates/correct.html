@@ -30,12 +30,13 @@
         </div>
     {% endif %}
 
-    <form action="/submit" method="post">
+    <form action="/correct" method="post">
         Manufacturer: <input name="manufacturer" value="{{ manufacturer }}"><br>
         Color: <input name="color" value="{{ color }}"><br>
         Finish: <input name="finish" value="{{ finish }}"><br>
         Paint Medium: <input name="paint_medium" value="{{ paint_medium }}"><br>
-        <input type="submit" value="Submit">
+        <button type="submit" name="action" value="submit">Submit</button>
+        <button type="submit" name="action" value="skip">Skip</button>
     </form>
     <p>You will return to the upload page when the database updates.</p>
 </body>

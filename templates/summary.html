@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<h2>Upload Summary</h2>
+    <p><strong>{{ total_images }} images uploaded.</strong></p>
+    <p><strong>{{ stored_paints }} paints stored.</strong></p>
+    <h3>Stored Paint Colors:</h3>
+    <ul>
+        {% for color in colors %}
+            <li>{{ color }}</li>
+        {% endfor %}
+    </ul>
+</html>
+<button onclick="window.location.href='{{ url_for('upload_form') }}'">Return to Upload Page</button>

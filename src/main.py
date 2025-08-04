@@ -11,6 +11,7 @@ from src.paint_parser import parse_image_as_string
 from src.update_db import upsert_paint
 from src.database_helpers import normalize_to_enum
 from src.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
+from urllib.parse import urlencode
 
 
 DATABASE_URL: str = "sqlite:///./paintdb.sqlite3"
@@ -25,54 +26,105 @@ OCR_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI()
 templates= Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+session_state: dict = {} # Placeholder for session management
 
+@app.get("/")
+async def root():
+    return RedirectResponse("/upload_form", status_code=303)
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/upload_form", name="upload_form", response_class=HTMLResponse)
 async def upload_form(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("upload_form.html", {"request": request})
 
 @app.post("/ocr", response_class=HTMLResponse)
 async def run_ocr(
     request: Request,
-    file: UploadFile = File(...)
+    uploaded_files: list[UploadFile] = File(...)
 ) -> HTMLResponse:
-    if not (
-        file.filename.endswith('.png') or
-        file.filename.endswith('.jpg') or
-        file.filename.endswith('.jpeg') or
-        file.filename.endswith('.webp')
-    ):
-        return templates.TemplateResponse(
-            "upload_form.html",
-            {"request": request, "error": "Only png/jpeg/webp files are allowed."}
+    result_dicts: list[dict[str, str | None]] = []
+    for file in uploaded_files:
+        if not (
+            file.filename.endswith('.png') or
+            file.filename.endswith('.jpg') or
+            file.filename.endswith('.jpeg') or
+            file.filename.endswith('.webp')
+        ):
+            continue
+        file_location = UPLOAD_DIR / file.filename
+        with file_location.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        result_dict: dict[str, str | None] = parse_image_as_string(
+            file_location, OCR_DIR / file.filename
         )
-    file_location = UPLOAD_DIR / file.filename
-    with file_location.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    result_dict: dict[str, str | None] = parse_image_as_string(
-        file_location, OCR_DIR / file.filename
-    )
+        result_dict["filename"] = file.filename
+        result_dict["uploaded_image"] = f"/static/uploads/{file.filename}"
+        result_dict["ocr_image"] = f"/static/ocr/{file.filename}"
+        result_dicts.append(result_dict)
+
+    if not result_dicts:
+        return templates.TemplateResponse("upload_form.html", {"request": request, "error": "No valid images uploaded."})
+    
+    # Store session data, need to add user/session management for this
+    session_state["review_queue"] = result_dicts
+    session_state["current_index"] = 0
+    session_state["stored_paint"] = []
+    
+    return RedirectResponse("/review", status_code=303)
+
+@app.get("/review")
+async def review_image(request: Request) -> HTMLResponse:
+    # replace with session management logic
+    idx = session_state["current_index"]
+    queue = session_state["review_queue"]
+
+    if idx >= len(queue):  # No more images to review
+        # Redirect to summary page
+        return RedirectResponse("/summary", status_code=303)
+    
+    # Retrieve the current image data
+    img_data: dict[str, str | None] = queue[idx]
     return templates.TemplateResponse("correct.html", {
         "request": request,
-        "uploaded_image": f"/static/uploads/{file.filename}",
-        "ocr_image": f"/static/ocr/{file.filename}",
-        **result_dict
+        **img_data
     })
 
-@app.post("/submit")
+@app.get("/summary")
+async def summary(request: Request) -> HTMLResponse:
+    total_images: int = len(session_state["review_queue"])
+    stored_paints: list[PaintDTO] = session_state["stored_paint"]
+    color_list = [paint.color for paint in stored_paints] if stored_paints else ["No paints stored."]
+    return templates.TemplateResponse(
+        "summary.html", 
+        {
+            "request": request,
+            "total_images": total_images,
+            "stored_paints": len(stored_paints),
+            "colors": color_list
+        }
+    )
+
+@app.post("/correct")
 async def submit_data(
+    request: Request,
     manufacturer: str = Form(...),
     color: str = Form(...),
     finish: str = Form(...),
-    paint_medium: str = Form(...)
+    paint_medium: str = Form(...),
+    action: str = Form(...)
 ) -> RedirectResponse:
-    with Session(engine) as session:
-        # Make and upsert a new Paint object
-        paint: PaintDTO = PaintDTO(
-            color=color,
-            manufacturer=normalize_to_enum(manufacturer, ManufacturerEnum),
-            finish=normalize_to_enum(finish, FinishEnum),
-            paint_medium=normalize_to_enum(paint_medium, PaintMediumEnum),
-        )
-        upsert_paint(session, paint)
-    return RedirectResponse("/", status_code=303)
+    idx = session_state["current_index"]
+    queue = session_state["review_queue"]
+    if idx < len(queue):
+        if action == "submit":
+            # Make and upsert a new Paint object
+            paint: PaintDTO = PaintDTO(
+                color=color,
+                manufacturer=normalize_to_enum(manufacturer, ManufacturerEnum),
+                finish=normalize_to_enum(finish, FinishEnum),
+                paint_medium=normalize_to_enum(paint_medium, PaintMediumEnum),
+            )
+            with Session(engine) as session:
+                upsert_paint(session, paint)
+            session_state["stored_paint"].append(paint)
+        session_state["current_index"] += 1
+    return RedirectResponse("/review", status_code=303)

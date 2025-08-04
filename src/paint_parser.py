@@ -16,6 +16,7 @@ from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2 import model_zoo 
 from src.helpers import get_font_path
+import gc
 
 home: Path = Path.home()
 ocr = PaddleOCR(
@@ -27,7 +28,7 @@ ocr = PaddleOCR(
     text_detection_model_dir=f"{home}/.paddlex/official_models/PP-OCRv5_server_det",  # remove these if running for the first time
     text_recognition_model_dir=f"{home}/.paddlex/official_models/PP-OCRv5_server_rec",  # remove these if running for the first time
     textline_orientation_model_dir=f"{home}/.paddlex/official_models/PP-LCNet_x1_0_textline_ori",  # remove these if running for the first time
-    text_det_unclip_ratio=2
+    text_det_unclip_ratio=2,
 )
 
 cfg = get_cfg()
@@ -256,7 +257,7 @@ def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO
                         color = f"{color} {text}"
                 else:
                     color = text
-
+    gc.collect()
     return PaintDTO(manufacturer=manufacturer, color=color, finish=finish, paint_medium=paint_medium)
 
 def parse_image_as_string(image_path: Path, save_ocr_path: Path | None = None) -> dict[str, str | None]:
