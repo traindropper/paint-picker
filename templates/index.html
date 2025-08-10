@@ -5,41 +5,552 @@
     <title>Table of My Paints</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        table { border-collapse: collapse; width: 60%; margin: 2em auto; }
+        #bubblePopup {
+            position:absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+        table { border-collapse: collapse; width: 70vw; margin: 2em auto; }
         th, td { border: 1px solid #ccc; padding: 0.5em 1em; text-align: left; }
         th { background-color: #f0f0f0; }
         tr:nth-child(even) { background-color: #f9f9f9; }
     </style>
 </head>
 <body>
-    <h2 style="text-align: center;">Paints Inventory</h1>
+    {% extends "base.html" %}
+    {% block title %}Paint Inventory{% endblock %}
+    {% block content %}
+    <div id="editModal" style="display:none; position:fixed;">
+        <form id="editForm">
+            <div>
+                <input type="hidden" name="paintId" id="paintId" />
+                <label for="color">Paint Color:</label>
+                <input type="text" id="color" name="color" required>
+
+                <label for="manufacturer">Manufacturer:</label>
+                <select id="manufacturer" name="manufacturer"></select>
+
+                <label for="finish">Finish:</label>
+                <select id="finish" name="finish"></select>
+
+                <label for="medium">Paint Medium:</label>
+                <select id="medium" name="medium"></select><br>
+                Swatch <input name="swatch" type="color" id="swatch">
+                Quantity <input name="quantity" type="number" id="quantity" min="0">
+            </div>
+            <button type="submit">Save</button>
+            <button type="button" id="closeModal">Cancel</button>
+            <button type="button" id="deleteBtn">Delete</button> 
+        </form>
+    </div>
+
+    </div>
+    <h2 style="text-align: center;">Paint Inventory</h1>
+    <div id="bubblePlot" style="width: 70vw; height: 50vh; margin: 2em auto;"></div>
+    <div style="width: 70vw; margin: 2em auto;">
+        <label>
+            Filter by Color:
+            <input type="text" id="color-filter" placeholder="Enter color name">
+        </label>
+        <label style="margin-left: 1em;">
+            Manufacturer:
+            <select id="manufacturer-filter"></select>
+        </label>
+        <label style="margin-left: 1em;">
+            Finish:
+            <select id="finish-filter"></select>
+        </label>
+        <label style="margin-left: 1em;">
+            Medium:
+            <select id="medium-filter"></select>
+        </label>
+    </div>
     <div id="table-container"></div>
     <script>
         d3.json("/paints").then(function(data) {
-            var table = d3.select("#table-container").append("table");
-            var thead = table.append("thead");
-            var tbody = table.append("tbody");
-            var columns = ["id", "color", "manufacturer", "quantity", "finish", "medium"];
-            thead.append("tr")
-                .selectAll("th")
-                .data(columns)
-                .enter()
-                .append("th")
-                .text(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
-            var rows = tbody.selectAll("tr")
-                .data(data)
-                .enter()
-                .append("tr");
-            rows.selectAll("td")
-                .data(function(row) {
-                    return columns.map(function(column) {
-                        return {column: column, value: row[column]};
+            var allData = data.slice();
+            var columns = ["id", "color", "swatch", "manufacturer", "quantity", "finish", "medium"];
+
+            // Show modal with current paint data
+            function openEditModal(paint){
+                const modal = document.getElementById("editModal");
+                const form = document.getElementById("editForm");
+                form.manufacturer.value = paint.manufacturer
+                form.finish.value = paint.finish;
+                form.medium.value = paint.medium;
+                form.swatch.value = paint.swatch;
+                form.color.value = paint.color;
+                form.quantity.value = paint.quantity;
+                modal.style.display = "block";
+
+                form.paintId.value = paint.id;
+            }
+
+            document.getElementById("closeModal").onclick = () => {
+                document.getElementById("editModal").style.display = "none";
+            }
+
+            document.getElementById("deleteBtn").addEventListener("click",  async function() {
+                const paintId = parseInt(document.getElementById("paintId").value, 10);
+                if (confirm("Are you sure you want to delete this paint?")) {
+                    const formData = {
+                        color: document.getElementById("color").value,
+                        manufacturer: document.getElementById("manufacturer").value,
+                        finish: document.getElementById("finish").value,
+                        medium: document.getElementById("medium").value,
+                        swatch: document.getElementById("swatch").value,
+                        quantity: parseInt(0, 10)
+                    };
+
+                    const response = await fetch(`/paints/${paintId}`, {
+                        method: "PUT",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(formData)
                     });
-                })
-                .enter()
-                .append("td")
-                .text(function(d) { return d.value; });
+                    
+                    if (response.ok) {
+                        const updatedPaint = await response.json();
+                        updateVisualization(updatedPaint);
+                        document.getElementById("editModal").style.display = "none";
+                    } else {
+                        alert("Failed to update paint");
+                    }
+                }
+            });
+
+            document.getElementById("editForm").onsubmit = async function(e) {
+                e.preventDefault();
+                const paintId = parseInt(document.getElementById("paintId").value, 10);
+                const formData = {
+                    color: document.getElementById("color").value,
+                    manufacturer: document.getElementById("manufacturer").value,
+                    finish: document.getElementById("finish").value,
+                    medium: document.getElementById("medium").value,
+                    swatch: document.getElementById("swatch").value,
+                    quantity: parseInt(document.getElementById("quantity").value, 10)
+                };
+
+                const response = await fetch(`/paints/${paintId}`, {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    const updatedPaint = await response.json();
+                    updateVisualization(updatedPaint);
+                    document.getElementById("editModal").style.display = "none";
+                } else {
+                    alert("Failed to update paint");
+                }
+            };
+
+            function updateVisualization(updatedPaint) {
+                const idx = allData.findIndex(p => p.id === updatedPaint.id);
+                if (idx !== -1){
+                    if (updatedPaint.quantity < 1) {
+                        allData.splice(idx, 1);
+                    } else {
+                        allData[idx] = updatedPaint;
+                    }
+                }
+                const filtered = filterData();
+                updateDataAndRenderTable();
+                renderBubblePlot(filtered);
+            }
+
+            // Populate dropdowns with unique values
+            function uniqueValues(key) {
+                return Array.from(new Set(allData.map(d => d[key]).filter(Boolean))).sort();
+            }
+
+            function populateDropdown(selectId, key, label) {
+                var select = d3.select(selectId);
+                select.html(""); // Clear
+                select.append("option").attr("value", "").text("All " + label); // First option
+                uniqueValues(key).forEach(function(val) {
+                    select.append("option").attr("value", val).text(val);
+                });
+            }
+            async function populateModalDropdown(endpoint, selectId) {
+                const response = await fetch(endpoint);
+                const items = await response.json();
+                const select = document.getElementById(selectId);
+                select.innerHTML = ""; // Clear
+                items.forEach(name => {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
+                });
+            }
+
+            function normalize(str) {
+                return (str || "").toLowerCase().replace(/[\s\W_]+/g, ""); // Removes spaces, punctuation, underscores
+            }
+
+            // Quantity min/max
+            function getQuantityExtent(data) {
+                return d3.extent(data, d => d.quantity)
+            }
+
+            function getContrastYIQ(hexcolor) {
+                // remove #
+                hexcolor = hexcolor.replace("#", "");
+                var r = parseInt(hexcolor.substr(0,2),16);
+                var g = parseInt(hexcolor.substr(2,2),16);
+                var b = parseInt(hexcolor.substr(4,2),16);
+                var yiq = ((r*299)+(g*587)+(b*114))/1000;
+                // light for blakc backgrounds, black for light backgrounds
+                return (yiq >= 128) ? "#000000" : "#FFFFFF";
+            }
+
+            const candidateColors = [
+                "#000000", // black
+                "#FFFFFF", // white
+                "#0032a1", // impact blue
+                "#fcb317", // innovation yellow
+                "#001e62", // elemental navy
+                "#eaf0fb", // ice
+                "#3366cc", // high energy azure
+                "#a9aabc", // carbon gray
+                "#63666a", // quantum slate
+            ]
+            
+            function luminance(color) {
+                const c = d3.rgb(color);
+                const channels = [c.r, c.g, c.b].map(function (v) {
+                    v /= 255
+                    return v <= 0.3928
+                        ? v / 12.92
+                        : Math.pow((v + 0.055) / 1.055, 2.4);
+                });  //              R                    G                       B 
+                return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+            }
+
+            function contrastRatio(a, b) {
+                const lumA = luminance(a);
+                const lumB = luminance(b);
+                return (Math.max(lumA, lumB) + 0.05) / (Math.min(lumA, lumB) + 0.05);
+            }
+
+            function bestContrastColor(bgColor, candidates = candidateColors, minContrast = 4.5 ) {
+                let best = { color: null, ratio: 0 };
+                candidates.forEach(candidate => {
+                    const ratio = contrastRatio(bgColor, candidate);
+                    if (ratio > best.ratio && ratio >= minContrast) {
+                        best = { color: candidate, ratio };
+                    } 
+                });
+                // Pick best contrast if we fail to meet the min requirement
+                if (!best.color) {
+                    best = candidates
+                        .map(color => ({ color, ratio: contrastRatio(bgColor, color) }))
+                        .sort((a, b) => b.ratio - a.ratio)[0];
+                }
+                return best.color
+            }
+
+            populateDropdown("#manufacturer-filter", "manufacturer", "Manufacturers");
+            populateDropdown("#finish-filter", "finish", "Finishes");
+            populateDropdown("#medium-filter", "medium", "Mediums");
+            populateModalDropdown("/manufacturers", "manufacturer");
+            populateModalDropdown("/finishes", "finish");
+            populateModalDropdown("/mediums", "medium");
+
+            function filterData() {
+                var colorVal = document.getElementById("color-filter").value.toLowerCase();
+                var manufacturerVal = document.getElementById("manufacturer-filter").value;
+                var finishVal = document.getElementById("finish-filter").value;
+                var mediumVal = document.getElementById("medium-filter").value;
+
+                return allData.filter(function(d) {
+                    var colorMatch = !colorVal || (d.color && normalize(d.color).includes(normalize(colorVal)));
+                    var manufacturerMatch = !manufacturerVal || d.manufacturer === manufacturerVal;
+                    var finishMatch = !finishVal || d.finish === finishVal;
+                    var mediumMatch = !mediumVal || d.medium === mediumVal;
+                    return colorMatch && manufacturerMatch && finishMatch && mediumMatch;
+                });
+            }
+
+            function renderBubblePlot(filteredData) {
+                const container = document.getElementById("bubblePlot");
+                const width = container.clientWidth, height = container.clientHeight, padding = 2;
+                const [minQ, maxQ] = getQuantityExtent(filteredData.length ? filteredData : allData);
+                const minRadius = 10, maxRadius = 15;
+                const areaScale = d3.scaleLinear()
+                    .domain([minQ, maxQ])
+                    .range([Math.PI * minRadius * minRadius, Math.PI * maxRadius * maxRadius]);
+                
+                // Bubble Popup
+                let popup = d3.select("#bubblePopup");
+                if (popup.empty()) {
+                    popup = d3.select("body").append("div").attr("id", "bubblePopup");
+                }
+                
+                // Bubble SVG
+                let svg = d3.select("#bubblePlot svg");
+                if (svg.empty()) {
+                    svg = d3.select("#bubblePlot")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+                }
+                
+                // JOIN
+                const groups = svg.selectAll("g.bubble")
+                .data(filteredData, d => d.id);
+                
+                // Exit bubbles
+                groups.exit()
+                .transition()
+                .duration(500)
+                .style("opacity", 0)
+                .remove();
+                
+                // Enter bubbles
+                const groupsEnter = groups.enter()
+                    .append("g")
+                    .attr("class", "bubble")
+                    .attr("transform", d => `translate(${width/2},${height/2})`) // Center start
+                    .style("opacity", 0);
+                    
+                groupsEnter.transition()
+                    .duration(700)
+                    .attr("transform", d => `translate(${width/2},${height/2})`) // Center start
+                    .style("opacity", 1);
+
+                groupsEnter.append("circle")
+                    .attr("r", 0)
+                    .attr("fill", (d) => d.swatch)
+                    .attr("stroke", "#333")
+                    .on("mouseover", function(e, d) {
+                        popup.transition().duration(150).style("opacity", 1);
+                        popup.html(
+                            `<strong>${d.color}</strong><br>Manufacturer: ${d.manufacturer}<br>Quantity: ${d.quantity}<br>Finish: ${d.finish}<br>Medium: ${d.medium}`
+                        );
+                        d3.select(this).style('stroke-width', "3px");
+                    })
+                    .on("mousemove", function(e) {
+                        popup
+                        .style("left", (e.pageX + 15) + "px")
+                        .style("top", (e.pageY - 20) + "px");
+                    })
+                    .on("mouseout", function(e) {
+                        popup.transition().duration(150).style("opacity", 0);
+                        d3.select(this).style('stroke-width', "1px");
+                    })
+                    .transition()
+                    .duration(700)
+                    .attr("r", d => Math.sqrt(areaScale(d.quantity) / Math.PI));
+
+                 // UPDATE BUBBLES
+                groups.transition()
+                    .duration(700)
+                    .style("opacity", 1);
+                
+                groups.select("circle")
+                    .transition()
+                    .duration(700)
+                    .attr("r", d => Math.sqrt(areaScale(d.quantity) / Math.PI))
+                    .attr("fill", (d) => d.swatch);
+
+                // MERGE
+                const allGroups = groups.merge(groupsEnter);
+                
+                // -= FORCE SIMULATION =-
+                
+                // Copy to avoid mutation
+                const nodes = filteredData.map(d => Object.assign({}, d));
+
+                // Force simulation
+                const simulation = d3.forceSimulation(nodes)
+                    .force("charge", d3.forceManyBody().strength(5))
+                    .force("center", d3.forceCenter(width/2, height/2))
+                    .force("collision", d3.forceCollide().radius(d => Math.sqrt(areaScale(d.quantity) / Math.PI) + padding));
+                
+                simulation.on("tick", () => {
+                    allGroups
+                        .data(nodes, d => d.id)
+                        .attr("transform", d=> `translate(${d.x},${d.y})`);
+                });
+
+                // -=BUBBLE DRAGGING=-
+                function dragStarted(event, d) {
+                    // raise alpha to raise sim responsiveness
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x; // fix node at the start point
+                    d.fy = d.y;
+                }
+
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+
+                function dragEnded(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null; // release the node
+                    d.fy = null;
+                }
+                
+                allGroups.call(d3.drag()
+                    .on("start", dragStarted)
+                    .on("drag", dragged)
+                    .on("end", dragEnded)
+                );
+            }
+
+            // TABLE
+            let sortColumn = null;
+            let sortAscending = true;
+            
+            function updateDataAndRenderTable(){
+                let filteredData = filterData()
+
+                if (sortColumn) {
+                    filteredData = filteredData.slice().sort((a, b) => {
+                        if (a[sortColumn] < b[sortColumn]) return sortAscending ? -1 : 1;
+                        if (a[sortColumn] > b[sortColumn]) return sortAscending ? 1 : -1;
+                        return 0;
+                    });
+                }
+                renderTable(filteredData)
+            }
+            
+            
+
+            function renderTable(filteredData) {
+                d3.select("#table-container").html(""); // Clear previous table
+                var table = d3.select("#table-container").append("table");
+                var thead = table.append("thead");
+                var tbody = table.append("tbody");
+                
+                // color scales
+                const [minQ, maxQ] = getQuantityExtent(filteredData.length ? filteredData : allData)
+                const colorScale = d3.scaleLinear()
+                .domain([minQ, maxQ])
+                .range(["#FFFAFA", "#57B9FF"])
+                
+                thead.append("tr")
+                    .selectAll("th")
+                    .data(columns)
+                    .enter()
+                    .append("th")
+                    .attr("data-col", d => d)
+                    .style("cursor", "pointer")
+                    .html(function(d) {
+                        let arrow = "";
+                        if (sortColumn === d) {
+                            arrow = sortAscending ? " &#9650;" : " &#9660;"; // ▲ or ▼
+                        }
+                        return d.charAt(0).toUpperCase() + d.slice(1) + arrow;
+                    })
+                    .on("click", function(e, d) {
+                        if (sortColumn === d) {
+                            sortAscending = !sortAscending;
+                        } else {
+                            sortColumn = d;
+                            sortAscending = true;
+                        }
+                        updateDataAndRenderTable();
+                    });
+
+
+                // DATA JOIN
+                var rows = tbody.selectAll("tr")
+                    .data(filteredData, d => d.id);
+
+                // EXIT
+                rows.exit()
+                    .transition()
+                    .duration(400)
+                    .style("opacity", 0)
+                    .remove();
+
+                // ENTER
+                var rowsEnter = rows.enter()
+                    .append("tr")
+                    .style("opacity", 0);
+
+                rowsEnter.transition()
+                    .duration(400)
+                    .style("opacity", 1);
+
+                // UPDATE + ENTER
+                var allRows = rowsEnter.merge(rows);
+
+                allRows.selectAll("td")
+                    .data(function(row) {
+                        return columns.map(function(column) {
+                            return {column: column, value: row[column]};
+                        });
+                    })
+                    .join(
+                        enter => enter.append("td")
+                            .text(d => d.value)
+                            .style("background-color", function(d) {
+                                if (d.column === "quantity" && d.value !== undefined && d.value !== null) {
+                                    return colorScale(d.value);
+                                }
+                                if (d.column === "swatch" && d.value) {
+                                    return d.value;
+                                }
+                                return null;
+                            })
+                            .style("color", function(d) {
+                                if (d.column === "swatch" && d.value) {
+                                    return bestContrastColor(d.value);
+                                }
+                                return null;
+                            }),
+                        update => update
+                            .transition()
+                            .duration(400)
+                            .style("background-color", function(d) {
+                                if (d.column === "quantity" && d.value !== undefined && d.value !== null) {
+                                    return colorScale(d.value);
+                                }
+                                if (d.column === "swatch" && d.value) {
+                                    return d.value;
+                                }
+                                return null;
+                            })
+                            .style("color", function(d) {
+                                if (d.column === "swatch" && d.value) {
+                                    return bestContrastColor(d.value);
+                                }
+                                return null;
+                            })
+                            .text(d => d.value)
+                    );
+
+                    // ROW EDITING
+                    allRows.on("click", (event, d) => openEditModal(d));
+            }
+
+            // Initial render
+            renderBubblePlot(allData);
+            renderTable(allData);
+
+            // Add event listeners
+            document.getElementById("color-filter").addEventListener("input", function() {
+                renderBubblePlot(filterData());
+                updateDataAndRenderTable();
+            });
+            ["manufacturer-filter", "finish-filter", "medium-filter"].forEach(function(id) {
+                document.getElementById(id).addEventListener("change", function() {
+                    renderBubblePlot(filterData());
+                    updateDataAndRenderTable();
+                });
+            });
         });
-    </script>
+        </script>
+    {% endblock %}
 </body>
 </html>

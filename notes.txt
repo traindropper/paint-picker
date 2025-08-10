@@ -17,3 +17,4 @@ pip3 install paddleocr
 install paddle OCR
 
 pip3 install uvicorn
+pip3 install randomcolor

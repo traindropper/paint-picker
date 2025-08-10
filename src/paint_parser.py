@@ -42,6 +42,7 @@ cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.25  # Set a custom testing threshold
 predictor = DefaultPredictor(cfg)   
 
 MISTER_COLOR: str = "Mr. Color"
+AQUEOUS: str = "AQUEOUS"
 
 GLOSS_JP: str = "光沢"
 GLOSS_EN: str = "Gloss"
@@ -84,6 +85,13 @@ def flexible_match(pattern: str, text: str) -> str:
     """Flexibly match text, ignore punctuation, case."""
     regex: str = flexible_pattern(pattern)
     return re.search(regex, text, re.IGNORECASE)
+
+
+def simple_string(text: str) -> str:
+    """Strip all non-simple english/latin/arabic numeral characters from a string, space aware."""
+    pattern: str = r" *[^A-Za-z0-9\'\- ]+ *"
+    cleaned: str = re.sub(pattern, " ", text)
+    return cleaned.strip()
 
 
 def plot_ocr_boxes(image: np.ndarray, ocr_results: list[dict], save_path: Path) -> None:
@@ -230,7 +238,7 @@ def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO
 
     for result in sorted_results:
         text: str = result["text"].lower()
-        if flexible_match(MISTER_COLOR, text):
+        if flexible_match(MISTER_COLOR, text) or flexible_match(AQUEOUS, text):
             manufacturer = ManufacturerEnum.MR_HOBBY
             paint_medium = PaintMediumEnum.LACQUER
         
@@ -258,17 +266,19 @@ def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO
                 else:
                     color = text
     gc.collect()
-    return PaintDTO(manufacturer=manufacturer, color=color, finish=finish, paint_medium=paint_medium)
+    color = simple_string(color)
+    return PaintDTO(manufacturer=manufacturer, color=color, swatch=None, finish=finish, paint_medium=paint_medium)
 
 def parse_image_as_string(image_path: Path, save_ocr_path: Path | None = None) -> dict[str, str | None]:
     """Parse an image and return a dictionary with paint details as strings."""
     paint_dto: PaintDTO | None = parse_image(image_path, save_ocr_path=save_ocr_path)
     if not paint_dto:
-        return {"manufacturer": None, "color": None, "finish": None, "paint_medium": None}
+        return {"manufacturer": None, "color": None, "swatch": None, "finish": None, "paint_medium": None}
 
     return {
         "manufacturer": paint_dto.manufacturer.value if paint_dto.manufacturer else None,
         "color": paint_dto.color,
+        "swatch": paint_dto.swatch,
         "finish": paint_dto.finish.value if paint_dto.finish else None,
         "paint_medium": paint_dto.paint_medium.value if paint_dto.paint_medium else None
     }
