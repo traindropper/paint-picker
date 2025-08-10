@@ -28,7 +28,7 @@
     <div id="editModal" style="display:none; position:fixed;">
         <form id="editForm">
             <div>
-                <input type="hidden" name="paintId" id="paintId" />
+                <input type="hidden" name="paintId" id="paintId"/>
                 <label for="color">Paint Color:</label>
                 <input type="text" id="color" name="color" required>
 
@@ -50,10 +50,11 @@
     </div>
 
     </div>
-    <h2 style="text-align: center;">Paint Inventory</h1>
+    <h2 style="text-align: center;">Paint Inventory</h2>
     <div id="bubblePlot" style="width: 70vw; height: 50vh; margin: 2em auto;"></div>
     <div style="width: 70vw; margin: 2em auto;">
-        <label>
+        <button id="addPaintBtn">Add New Paint</button>
+        <label style="margin-left: 1em;">
             Filter by Color:
             <input type="text" id="color-filter" placeholder="Enter color name">
         </label>
@@ -77,18 +78,40 @@
             var columns = ["id", "color", "swatch", "manufacturer", "quantity", "finish", "medium"];
 
             // Show modal with current paint data
-            function openEditModal(paint){
+            function populatePaintForm(form, paint = {}) {
+                // Set values or defaults
+                form.paintId.value = paint.id || null;
+                form.color.value = paint.color || "";
+                form.swatch.value = paint.swatch || "#ffffff";
+                form.quantity.value = paint.quantity || 1;
+
+                // For dropdowns, set to paint value or first option
+                ["manufacturer", "finish", "medium"].forEach(field => {
+                    const select = form[field];
+                    if (paint[field]) {
+                        select.value = paint[field];
+                    } else if (select.options.length > 0) {
+                        select.selectedIndex = 0;
+                    }
+                });
+            }
+
+            function openEditModal(paint) {
                 const modal = document.getElementById("editModal");
                 const form = document.getElementById("editForm");
-                form.manufacturer.value = paint.manufacturer
-                form.finish.value = paint.finish;
-                form.medium.value = paint.medium;
-                form.swatch.value = paint.swatch;
-                form.color.value = paint.color;
-                form.quantity.value = paint.quantity;
+                form.setAttribute("data-mode", "edit");
+                populatePaintForm(form, paint);
+                document.getElementById("deleteBtn").style.display = "inline-block"
                 modal.style.display = "block";
+            }
 
-                form.paintId.value = paint.id;
+            function openNewModal() {
+                const modal = document.getElementById("editModal");
+                const form = document.getElementById("editForm");
+                form.setAttribute("data-mode", "new");
+                populatePaintForm(form, {}); // blank
+                document.getElementById("deleteBtn").style.display = "none"
+                modal.style.display = "block";
             }
 
             document.getElementById("closeModal").onclick = () => {
@@ -118,14 +141,17 @@
                         updateVisualization(updatedPaint);
                         document.getElementById("editModal").style.display = "none";
                     } else {
-                        alert("Failed to update paint");
+                        alert("Failed to delete paint.");
                     }
                 }
             });
 
             document.getElementById("editForm").onsubmit = async function(e) {
                 e.preventDefault();
+                const form = e.target;
+                const mode = form.getAttribute("data-mode");
                 const paintId = parseInt(document.getElementById("paintId").value, 10);
+
                 const formData = {
                     color: document.getElementById("color").value,
                     manufacturer: document.getElementById("manufacturer").value,
@@ -135,28 +161,41 @@
                     quantity: parseInt(document.getElementById("quantity").value, 10)
                 };
 
-                const response = await fetch(`/paints/${paintId}`, {
-                    method: "PUT",
+                let url, method;
+                if (mode === "edit") {
+                    url = `/paints/${paintId}`;
+                    method = "PUT";
+                } else {
+                    url = `/paints`;
+                    method = "POST";
+                }
+
+                const response = await fetch(url, {
+                    method: method,
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify(formData)
                 });
                 
                 if (response.ok) {
-                    const updatedPaint = await response.json();
-                    updateVisualization(updatedPaint);
+                    const paint = await response.json();
+                    updateVisualization(paint);
                     document.getElementById("editModal").style.display = "none";
                 } else {
-                    alert("Failed to update paint");
+                    alert("Failed to update paint database.");
                 }
             };
 
-            function updateVisualization(updatedPaint) {
-                const idx = allData.findIndex(p => p.id === updatedPaint.id);
-                if (idx !== -1){
-                    if (updatedPaint.quantity < 1) {
-                        allData.splice(idx, 1);
+            function updateVisualization(paintData) {
+                const idx = allData.findIndex(p => p.id === paintData.id);
+                if (idx !== -1){ // Update a paint
+                    if (paintData.quantity < 1) {
+                        allData.splice(idx, 1); // Remove if < 1
                     } else {
-                        allData[idx] = updatedPaint;
+                        allData[idx] = paintData; // Update existing
+                    }
+                } else { // New paint
+                    if (paintData.quantity >= 1) {
+                        allData.push(paintData);
                     }
                 }
                 const filtered = filterData();
@@ -548,6 +587,9 @@
                     renderBubblePlot(filterData());
                     updateDataAndRenderTable();
                 });
+            });
+            document.getElementById("addPaintBtn").addEventListener("click", () => {
+                openNewModal();
             });
         });
         </script>

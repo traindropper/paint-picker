@@ -68,6 +68,30 @@ def get_paint(paint_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Paint not found.")
     return Paint
 
+@app.post("/paints", response_model=PaintOut)
+def add_new_paint(update: PaintUpdate, db: Session = Depends(get_db)):
+    update_data: dict = update.model_dump(exclude_unset=True)
+    paint_data: PaintDTO = PaintDTO(
+        manufacturer=update_data["manufacturer"],
+        color=update_data["color"],
+        swatch=update_data["swatch"],
+        finish=update_data["finish"],
+        paint_medium=update_data["medium"]
+    )
+    paint_item: Paint = upsert_paint(db, paint_data=paint_data)
+    paint_item.quantity_owned = update_data["quantity"]
+    add_com_ref(db, paint_item)
+        
+    return PaintOut(
+        id=paint_item.id,
+        manufacturer=update_data["manufacturer"],
+        finish=update_data["finish"],
+        medium=update_data["medium"],
+        swatch=update_data["swatch"],
+        quantity=update_data["quantity"],
+        color=update_data["color"]
+    )
+
 @app.put("/paints/{paint_id}", response_model=PaintOut)
 def update_paint(paint_id: int, update: PaintUpdate, db: Session = Depends(get_db)):
     paint_item: Paint | None = db.query(Paint).filter(Paint.id==paint_id).first()
