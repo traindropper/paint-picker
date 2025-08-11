@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, Engine, select
-from src.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium
+from src.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium, sync_all_reference_tables
 from src.database_helpers import add_com_ref
 from src.paint_parser import parse_image_as_string
 from src.update_db import upsert_paint, get_or_create_finish, get_or_create_manufacturer, get_or_create_paint_medium
@@ -25,6 +25,7 @@ SessionLocal = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 def get_db():
     db = SessionLocal()
+    sync_all_reference_tables(db)
     try:
         yield db
     finally:

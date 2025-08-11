@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase, Session
 from sqlalchemy import String, Integer, ForeignKey
 from src.base_classes import ManufacturerEnum, PaintMediumEnum, FinishEnum
-from src.database_helpers import normalize_string
+from src.database_helpers import normalize_string, sync_enum_to_table
 from dataclasses import dataclass
 
 
@@ -95,3 +95,7 @@ def create_paint_from_dto(dto: PaintDTO, session: Session) -> Paint:
         paint_medium=session.query(PaintMedium).filter_by(normalized_name=normalize_string(dto.paint_medium.value)).one() if dto.paint_medium else None,
     )
 
+def sync_all_reference_tables(session: Session):
+    sync_enum_to_table(session, ManufacturerEnum, Manufacturer)
+    sync_enum_to_table(session, FinishEnum, Finish)
+    sync_enum_to_table(session, PaintMediumEnum, PaintMedium)

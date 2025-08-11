@@ -163,8 +163,8 @@ def load_and_smart_crop(image_path: Path) -> np.ndarray:
     outputs = predictor(image)
     instances = outputs["instances"]
     if len(instances) == 0:
-        LOGGER.warning("No instances detected in image, using default crop: %s", image_path)
-        image = np.array(crop_transform(Image.fromarray(image)))
+        LOGGER.warning("No instances detected in image, using uncropped image: %s", image_path)
+        # image = np.array(crop_transform(Image.fromarray(image)))
 
     else:
         # Get the bounding box of the first instance
@@ -238,7 +238,7 @@ def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO
 
     for result in sorted_results:
         text: str = result["text"].lower()
-        if flexible_match(MISTER_COLOR, text) or flexible_match(AQUEOUS, text):
+        if flexible_match(MISTER_COLOR, text) or flexible_match(AQUEOUS, text) or flexible_match("hobby", text):
             manufacturer = ManufacturerEnum.MR_HOBBY
             paint_medium = PaintMediumEnum.LACQUER
         
@@ -266,7 +266,10 @@ def parse_image(image_path: Path, save_ocr_path: Path | None = None) -> PaintDTO
                 else:
                     color = text
     gc.collect()
-    color = simple_string(color)
+    if color:
+        color = simple_string(color)
+    else:
+        color = "UNKNOWN"
     return PaintDTO(manufacturer=manufacturer, color=color, swatch=None, finish=finish, paint_medium=paint_medium)
 
 def parse_image_as_string(image_path: Path, save_ocr_path: Path | None = None) -> dict[str, str | None]:

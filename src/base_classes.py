@@ -10,13 +10,17 @@ class FinishEnum(str, Enum):
     MATTE = "Matte"
     GLOSS = "Gloss"
     SEMI_GLOSS = "Semi-gloss"
+    PEARL = "Pearl"
+    CLEAR = "Clear"
+    METALLIC = "Metallic"
+    FLOURESCENT = "Flourescent"
     UNKNOWN = "Unknown"
 
 class PaintMediumEnum(str, Enum):
     LACQUER = "Lacquer"
     Acrylic = "Acrylic"
-    ENAMEL = "ENAMEL"
-    OIL = "OIL"
+    ENAMEL = "Enamel"
+    OIL = "Oil"
     UNKNOWN = "Unknown"
     
 class DataclassEnumEncoder(json.JSONEncoder):
