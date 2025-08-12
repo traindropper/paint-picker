@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Correct Paint Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .image-preview { margin-bottom: 2em; }
+        img { max-width: 400px; height: auto; border: 1px solid #ccc; }
+        form { max-width: 500px; }
+        label { display: block; margin-top: 1em; }
+        input[type="text"] { width: 100%; padding: 0.5em; }
+        button { margin-top: 1.5em; padding: 0.7em 2em; }
+        #colorPreview {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #000;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    {% extends "base.html" %}
+    {% block title %}Correct Paint Data and Submit{% endblock %}
+    {% block content %}
+    <h1>Correct Paint Data and Submit</h1>
+
+    {% if uploaded_image %}
+        <div class="image-preview">
+            <h2>Uploaded Image</h2>
+            <img src="{{ uploaded_image }}" alt="Uploaded image">
+        </div>
+    {% endif %}
+
+    <form action="/correct" method="post" id="correctionForm">
+        Color: <input name="color" value="{{ color }}"><br>
+        Manufacturer: <input name="manufacturer" value="{{ manufacturer }}"><br>
+        Finish: <input name="finish" value="{{ finish }}"><br>
+        Paint Medium: <input name="paint_medium" value="{{ paint_medium }}"><br>
+        <div>
+            <label for="colorSwatch">Associate a color:</label>
+            <button type="button" id="pickColorBtn">Pick a color from image</button>
+            <input type="color" id="colorSwatchInput" name="swatch" value="#080704">
+            <span id="colorPreview"></span>
+            <button type="button" id="clearSwatch">Clear Color</button>
+        </div>
+        <button type="submit" name="action" value="submit">Submit</button>
+        <button type="submit" name="action" value="skip">Skip</button>
+    </form>
+    <p>Note: A random color swatch will be assigned if the paint does not already exist in the database and you do not select one.</p>
+    
+    {% if ocr_image %}
+        <div class="image-preview">
+            <h2>OCR Result</h2>
+            <img src="{{ ocr_image }}" alt="OCR image" style="max-width: 1000px; height: auto;">
+        </div>
+    {% endif %}
+
+    <script>
+        const colorSwatch = document.getElementById("colorSwatchInput");
+        const colorPreview = document.getElementById("colorPreview");
+        const pickColorBtn = document.getElementById("pickColorBtn");
+        const originalSwatch = colorSwatch.value;
+        const form = document.getElementById("correctionForm");
+
+        function updatePreview(hex) {
+            colorPreview.style.backgroundColor = hex;
+        }
+
+        colorSwatch.addEventListener("input", (e) => {
+            updatePreview(e.target.value);
+        });
+
+        pickColorBtn.addEventListener("click", async () => {
+            if ("EyeDropper" in window) {
+                try {
+                    const eyeDropper = new EyeDropper();
+                    const result = await eyeDropper.open();
+                    colorSwatch.value = result.sRGBHex;
+                    updatePreview(result.sRGBHex);
+                } catch (err) {
+                    alert("Color picking cancelled or not supported.");
+                }
+            } else {
+                alert("Your browser does not support the EyeDropper API. Try Microsoft Edge for full support, or use the color map to manually select a color.");
+            }
+        });
+
+        updatePreview(colorSwatch.value);
+
+        document.getElementById("clearSwatch").addEventListener("click", function() {
+            document.getElementById("colorSwatchInput").value = "#080704" // return to default value
+            document.getElementById("colorPreview").style.backgroundColor = "#080704" // return to default value
+        });
+        
+        form.addEventListener("submit", function(e) {
+            if (colorSwatch.value === originalSwatch) {
+                colorSwatchInput.value = "";
+            }
+        });
+    </script>
+    {% endblock %}
+</body>
+</html>

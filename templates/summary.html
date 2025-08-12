@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+{% extends "base.html" %}
+{% block title %}Upload Summary{% endblock %}
+{% block content %}
+<h2>Upload Summary</h2>
+    <p><strong>{{ total_images }} images uploaded.</strong></p>
+    <p><strong>{{ stored_paints }} paints stored.</strong></p>
+    <h3>Stored Paint Colors:</h3>
+    <ul>
+        {% for color in colors %}
+            <li>{{ color }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+</html>
