@@ -3,9 +3,6 @@ Paint database with web-based frontend and some light OCR utilities sprinkled in
 
 <img width="1796" height="939" alt="image" src="https://github.com/user-attachments/assets/4537ec65-cf7d-4fbd-9dfc-8e74245cf5c1" />
 
-<img width="605" height="1060" alt="image" src="https://github.com/user-attachments/assets/f47889cd-0585-49dd-a189-a0b62eae358d" />
-
-
 
 # Initial Setup
 To to setup your virtual environment, run:
