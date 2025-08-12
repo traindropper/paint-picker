@@ -1,6 +1,11 @@
 # Paint-Picker
 Paint database with web-based frontend and some light OCR utilities sprinkled in.
 
+<img width="1796" height="939" alt="image" src="https://github.com/user-attachments/assets/4537ec65-cf7d-4fbd-9dfc-8e74245cf5c1" />
+
+<img width="605" height="1060" alt="image" src="https://github.com/user-attachments/assets/f47889cd-0585-49dd-a189-a0b62eae358d" />
+
+
 
 # Initial Setup
 To to setup your virtual environment, run:
@@ -8,7 +13,7 @@ To to setup your virtual environment, run:
 ./create_venv.sh
 ```
 
-You may need to acivate it and install detectron2 manually with this command:
+You may need to activate the environment and install detectron2 manually with this command:
 ```console
 pip3 install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation 
 ```
