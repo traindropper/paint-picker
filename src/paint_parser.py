@@ -18,16 +18,43 @@ from detectron2 import model_zoo
 from src.helpers import get_font_path
 import gc
 
+# setup the paddle models
 home: Path = Path.home()
+doc_orientation_classify_model_dir: Path | None = Path(
+    home / ".paddlex/official_models/PP-LCNet_x1_0_doc_ori"
+) if Path(
+    home / ".paddlex/official_models/PP-LCNet_x1_0_doc_ori"
+).exists() else None     
+doc_unwarping_model_dir: Path | None = Path(
+    home / ".paddlex/official_models/UVDoc"
+) if Path(
+    home / ".paddlex/official_models/UVDoc"
+).exists() else None
+text_detection_model_dir: Path | None = Path(
+    home / ".paddlex/official_models/PP-OCRv5_server_det"
+) if Path(
+    home / ".paddlex/official_models/PP-OCRv5_server_det"
+).exists() else None
+text_recognition_model_dir: Path | None = Path(
+    home / ".paddlex/official_models/PP-OCRv5_server_rec"
+) if Path(
+    home / ".paddlex/official_models/PP-OCRv5_server_rec"
+).exists() else None
+textline_orientation_model_dir: Path | None = Path(
+    home / ".paddlex/official_models/PP-LCNet_x1_0_textline_ori"
+) if Path(
+    home / ".paddlex/official_models/PP-LCNet_x1_0_textline_ori"
+).exists() else None
+
 ocr = PaddleOCR(
     use_doc_orientation_classify=True,
     use_doc_unwarping=True,
     use_textline_orientation=False, # Disables text line orientation classification
-    doc_orientation_classify_model_dir=f"{home}/.paddlex/official_models/PP-LCNet_x1_0_doc_ori",  # remove these if running for the first time
-    doc_unwarping_model_dir=f"{home}/.paddlex/official_models/UVDoc",  # remove these if running for the first time
-    text_detection_model_dir=f"{home}/.paddlex/official_models/PP-OCRv5_server_det",  # remove these if running for the first time
-    text_recognition_model_dir=f"{home}/.paddlex/official_models/PP-OCRv5_server_rec",  # remove these if running for the first time
-    textline_orientation_model_dir=f"{home}/.paddlex/official_models/PP-LCNet_x1_0_textline_ori",  # remove these if running for the first time
+    doc_orientation_classify_model_dir=doc_orientation_classify_model_dir,
+    doc_unwarping_model_dir=doc_unwarping_model_dir,
+    text_detection_model_dir=text_detection_model_dir,
+    text_recognition_model_dir=text_recognition_model_dir,
+    textline_orientation_model_dir=textline_orientation_model_dir,
     text_det_unclip_ratio=2,
 )
 

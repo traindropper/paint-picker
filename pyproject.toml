@@ -1,22 +1,19 @@
 [project]
-name = "sprue-search"
+name = "paint-picker"
 version = "0.1.0"
-description = "Sprue searcher Project."
+description = "Paint databasing and front-end."
 authors = ["traindropper"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 
 requires-python = ">=3.13"
 
-# TODO: SOLVE THE PADDLE AND INDEX PROBLEM
-
 dependencies = [
     "imutils>=0.5.4",
     "matplotlib>=3.10.3",
     "numpy>=2.3.2",
-    "opencv-contrib-python>=4.11.0.86", # cv2, apt-get install libgl1
-    # "pytesseract>=0.3.13", # apt-get install tesseract-ocr
-    # "paddlepaddle-gpu>=3.1.0",
+    "opencv-python>=4.11.0.86",
+    "paddlepaddle-gpu>=3.1.0",
     "paddleocr>=3.1.0",
     "sqlalchemy",
     "torchvision",
@@ -25,18 +22,26 @@ dependencies = [
     "jinja2>=3.1.6",
     "python-multipart>=0.0.20",
     "aiofiles>=24.1.0",
+    "uvicorn",
+    "randomcolor"
 ]
 
-# [tool.uv.sources]
-# torch = { index = "pytorch" }
-# paddlepaddle-gpu = { index = "paddlepaddle" }
 
-# [[tool.uv.index]]
-# name = "pytorch"
-# url = "https://download.pytorch.org/whl/cu128"  # replace with your CUDA version
-# default = true
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
 
-# [[tool.uv.index]]
-# name = "paddlepaddle"
-# url = "https://www.paddlepaddle.org.cn/packages/stable/cu129/"  # replace with your CUDA version
-# default = true
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "paddlepaddle"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu129/"  # replace with your CUDA version
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchvision = { index = "pytorch" }
+paddlepaddle-gpu = { index = "paddlepaddle" }
