@@ -14,9 +14,4 @@ if [ "$EDITABLE" == "false" ]; then
     UV_EXTRAS="--no-editable"
 fi
 
-uv sync --frozen --active $UV_EXTRAS --all-packages --index-strategy unsafe-best-match
-source .venv/bin/activate
-python -m ensurepip
-pip3 install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation
-pip3 uninstall torch torchvision torchaudio
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+uv sync --frozen --active $UV_EXTRAS --all-packages 

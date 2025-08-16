@@ -4,7 +4,7 @@ from typing import Type, TypeVar
 
 T = TypeVar('T', bound=Enum)
 
-from sqlalchemy.orm import Session, Query
+from sqlalchemy.orm import Session
 import re
 
 

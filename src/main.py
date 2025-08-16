@@ -1,5 +1,5 @@
 from pathlib import Path
-import shutil
+# import shutil
 from typing import Any
 from fastapi import FastAPI, Request, Form, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -9,14 +9,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, Engine, select
 from src.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium, sync_all_reference_tables
 from src.database_helpers import add_com_ref
-from src.paint_parser import parse_image_as_string
+# from src.paint_parser import parse_image_as_string TODO: OCR
 from src.update_db import upsert_paint, get_or_create_finish, get_or_create_manufacturer, get_or_create_paint_medium
 from src.database_helpers import normalize_to_enum
 from src.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
-from enum import Enum
 from src.schemas import PaintOut, PaintUpdate
 from src.database_helpers import normalize_string
-from typing import Annotated
 
 # Dependency on DB session
 DATABASE_URL: str = "sqlite:///./paintdb.sqlite3"
@@ -167,58 +165,72 @@ async def run_ocr(
             file.filename.endswith('.webp')
         ):
             continue
-        file_location = UPLOAD_DIR / file.filename
-        with file_location.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        result_dict: dict[str, str | None] = parse_image_as_string(
-            file_location, OCR_DIR / file.filename
-        )
-        result_dict["filename"] = file.filename
-        result_dict["uploaded_image"] = f"/static/uploads/{file.filename}"
-        result_dict["ocr_image"] = f"/static/ocr/{file.filename}"
-        result_dicts.append(result_dict)
+        print(file)
+        # TODO: Fill with OCR
+        # file_location = UPLOAD_DIR / file.filename
+        # with file_location.open("wb") as buffer:
+        #     shutil.copyfileobj(file.file, buffer)
+    #     result_dict: dict[str, str | None] = parse_image_as_string(
+    #         file_location, OCR_DIR / file.filename
+    #     )
+    #     result_dict["filename"] = file.filename
+    #     result_dict["uploaded_image"] = f"/static/uploads/{file.filename}"
+    #     result_dict["ocr_image"] = f"/static/ocr/{file.filename}"
+    #     result_dicts.append(result_dict)
 
-    if not result_dicts:
-        return templates.TemplateResponse("upload_form.html", {"request": request, "error": "No valid images uploaded."})
+    # if not result_dicts:
+    #     return templates.TemplateResponse("upload_form.html", {"request": request, "error": "No valid images uploaded."})
     
-    # Store session data, need to add user/session management for this
-    session_state["review_queue"] = result_dicts
-    session_state["current_index"] = 0
-    session_state["stored_paint"] = []
+    # # Store session data, need to add user/session management for this
+    # session_state["review_queue"] = result_dicts
+    # session_state["current_index"] = 0
+    # session_state["stored_paint"] = []
     
     return RedirectResponse("/review", status_code=303)
 
 @app.get("/review")
 async def review_image(request: Request) -> HTMLResponse:
+    return RedirectResponse("/summary", status_code=303)
+    # TODO: Sort out reviewing along with the OCR
     # replace with session management logic
-    idx = session_state["current_index"]
-    queue = session_state["review_queue"]
+    # idx = session_state["current_index"]
+    # queue = session_state["review_queue"]
 
-    if idx >= len(queue):  # No more images to review
-        # Redirect to summary page
-        return RedirectResponse("/summary", status_code=303)
+    # if idx >= len(queue):  # No more images to review
+    #     # Redirect to summary page
+    #     return RedirectResponse("/summary", status_code=303)
     
-    # Retrieve the current image data
-    img_data: dict[str, str | None] = queue[idx]
-    return templates.TemplateResponse("correct.html", {
-        "request": request,
-        **img_data
-    })
+    # # Retrieve the current image data
+    # img_data: dict[str, str | None] = queue[idx]
+    # return templates.TemplateResponse("correct.html", {
+    #     "request": request,
+    #     **img_data
+    # })
 
 @app.get("/summary", name="summary")
 async def summary(request: Request) -> HTMLResponse:
-    total_images: int = len(session_state["review_queue"])
-    stored_paints: list[PaintDTO] = session_state["stored_paint"]
-    color_list = [paint.color for paint in stored_paints] if stored_paints else ["No paints stored."]
     return templates.TemplateResponse(
         "summary.html", 
         {
             "request": request,
-            "total_images": total_images,
-            "stored_paints": len(stored_paints),
-            "colors": color_list
+            "total_images": 0,
+            "stored_paints": 0,
+            "colors": ["No paints stored."]
         }
     )
+    # TODO: Return a nice summary when paint ocr finishes
+    # total_images: int = len(session_state["review_queue"])
+    # stored_paints: list[PaintDTO] = session_state["stored_paint"]
+    # color_list = [paint.color for paint in stored_paints] if stored_paints else ["No paints stored."]
+    # return templates.TemplateResponse(
+    #     "summary.html", 
+    #     {
+    #         "request": request,
+    #         "total_images": total_images,
+    #         "stored_paints": len(stored_paints),
+    #         "colors": color_list
+    #     }
+    # )
 
 @app.post("/correct", name="correction_form")
 async def submit_data(

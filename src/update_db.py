@@ -1,11 +1,8 @@
 from typing import Any
-from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, ForeignKey, UniqueConstraint
-)
-from sqlalchemy.orm import Session, Query
+from sqlalchemy.orm import Session
 import logging
 
-from src.models import Manufacturer, Finish, PaintMedium, PaintDTO, PaintUpdateDTO, Paint
+from src.models import Manufacturer, Finish, PaintMedium, PaintDTO, Paint
 from src.database_helpers import add_com_ref, normalize_string
 from randomcolor import RandomColor
 
