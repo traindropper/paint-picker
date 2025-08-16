@@ -1,4 +1,5 @@
 from pathlib import Path
+
 # import shutil
 from typing import Any
 from fastapi import FastAPI, Request, Form, UploadFile, File, Depends, HTTPException
@@ -7,18 +8,34 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, Engine, select
-from paint_database_models.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium, sync_all_reference_tables
+from paint_database_models.models import (
+    Base,
+    Paint,
+    PaintDTO,
+    Manufacturer,
+    Finish,
+    PaintMedium,
+    sync_all_reference_tables,
+)
 from paint_database_models.database_helpers import add_com_ref, normalize_to_enum, normalize_string
+
 # from src.paint_parser import parse_image_as_string TODO: OCR
 from paint_database_models.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
 from paint_database_models.schemas import PaintOut, PaintUpdate
-from paint_api.update_db import upsert_paint, get_or_create_finish, get_or_create_manufacturer, get_or_create_paint_medium
+from paint_api.update_db import (
+    upsert_paint,
+    get_or_create_finish,
+    get_or_create_manufacturer,
+    get_or_create_paint_medium,
+)
 
 # Dependency on DB session
 DATABASE_URL: str = "sqlite:///./paintdb.sqlite3"
 engine: Engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
+
+
 def get_db():
     db = SessionLocal()
     sync_all_reference_tables(db)
@@ -27,23 +44,26 @@ def get_db():
     finally:
         db.close()
 
+
 UPLOAD_DIR: Path = Path("static/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OCR_DIR: Path = Path("static/ocr")
 OCR_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI()
-templates= Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-session_state: dict = {} # Placeholder for session management
+session_state: dict = {}  # Placeholder for session management
+
 
 @app.get("/", response_class=HTMLResponse, name="home")
 async def home(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("index.html", {"request": request})
 
+
 @app.get("/paints")
 async def get_paints(request: Request, db: Session = Depends(get_db)):
-    paint_list: list[dict[str, Any]] = [] 
+    paint_list: list[dict[str, Any]] = []
     paints: list[Paint] = db.query(Paint).all()
     for paint in paints:
         paint_data: dict[str, Any] = {
@@ -53,17 +73,19 @@ async def get_paints(request: Request, db: Session = Depends(get_db)):
             "manufacturer": paint.manufacturer.name,
             "finish": paint.finish.name if paint.finish else None,
             "medium": paint.paint_medium.name if paint.paint_medium else None,
-            "quantity": paint.quantity_owned
+            "quantity": paint.quantity_owned,
         }
         paint_list.append(paint_data)
     return paint_list
 
+
 @app.get("/paints/{paint_id}", response_model=PaintOut)
 def get_paint(paint_id: int, db: Session = Depends(get_db)):
-    paint: Paint | None = db.query(Paint).filter(Paint.id==paint_id).first()
+    paint: Paint | None = db.query(Paint).filter(Paint.id == paint_id).first()
     if not paint:
         raise HTTPException(status_code=404, detail="Paint not found.")
     return Paint
+
 
 @app.post("/paints", response_model=PaintOut)
 def add_new_paint(update: PaintUpdate, db: Session = Depends(get_db)):
@@ -73,12 +95,12 @@ def add_new_paint(update: PaintUpdate, db: Session = Depends(get_db)):
         color=update_data["color"],
         swatch=update_data["swatch"],
         finish=update_data["finish"],
-        paint_medium=update_data["medium"]
+        paint_medium=update_data["medium"],
     )
     paint_item: Paint = upsert_paint(db, paint_data=paint_data)
     paint_item.quantity_owned = update_data["quantity"]
     add_com_ref(db, paint_item)
-        
+
     return PaintOut(
         id=paint_item.id,
         manufacturer=update_data["manufacturer"],
@@ -86,16 +108,17 @@ def add_new_paint(update: PaintUpdate, db: Session = Depends(get_db)):
         medium=update_data["medium"],
         swatch=update_data["swatch"],
         quantity=update_data["quantity"],
-        color=update_data["color"]
+        color=update_data["color"],
     )
+
 
 @app.put("/paints/{paint_id}", response_model=PaintOut)
 def update_paint(paint_id: int, update: PaintUpdate, db: Session = Depends(get_db)):
-    paint_item: Paint | None = db.query(Paint).filter(Paint.id==paint_id).first()
+    paint_item: Paint | None = db.query(Paint).filter(Paint.id == paint_id).first()
     if not paint_item:
         raise HTTPException(status_code=404, detail="Paint not found.")
     update_data: dict = update.model_dump(exclude_unset=True)
-    
+
     manufacturer: Manufacturer = get_or_create_manufacturer(db, update_data["manufacturer"].value)
     finish: Finish = get_or_create_finish(db, update_data["finish"].value)
     paint_medium: PaintMedium = get_or_create_paint_medium(db, update_data["medium"].value)
@@ -104,15 +127,15 @@ def update_paint(paint_id: int, update: PaintUpdate, db: Session = Depends(get_d
     paint_item.finish_id = finish.id
     paint_item.paint_medium_id = paint_medium.id
     paint_item.color = update_data["color"]
-    paint_item.normalized_color=normalize_string(update_data["color"])
+    paint_item.normalized_color = normalize_string(update_data["color"])
     paint_item.swatch = update_data["swatch"]
     paint_item.quantity_owned = update_data["quantity"]
-    
+
     if update_data["quantity"] < 1:
         delete_paint(paint_id, db)
     else:
         add_com_ref(db, paint_item)
-        
+
     return PaintOut(
         id=paint_id,
         manufacturer=update_data["manufacturer"],
@@ -120,8 +143,9 @@ def update_paint(paint_id: int, update: PaintUpdate, db: Session = Depends(get_d
         medium=update_data["medium"],
         swatch=update_data["swatch"],
         quantity=update_data["quantity"],
-        color=update_data["color"]
+        color=update_data["color"],
     )
+
 
 @app.delete("/paints/{paint_id}", status_code=204)
 def delete_paint(paint_id: int, db: Session = Depends(get_db)):
@@ -133,34 +157,36 @@ def delete_paint(paint_id: int, db: Session = Depends(get_db)):
     db.commit()
     return
 
+
 @app.get("/manufacturers")
 def get_manufacturers():
     return [e.value for e in ManufacturerEnum]
+
 
 @app.get("/finishes")
 def get_manufacturers():
     return [e.value for e in FinishEnum]
 
+
 @app.get("/mediums")
 def get_manufacturers():
     return [e.value for e in PaintMediumEnum]
+
 
 @app.get("/upload_form", name="upload_form", response_class=HTMLResponse)
 async def upload_form(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("upload_form.html", {"request": request})
 
+
 @app.post("/ocr", response_class=HTMLResponse)
-async def run_ocr(
-    request: Request,
-    uploaded_files: list[UploadFile] = File(...)
-) -> HTMLResponse:
+async def run_ocr(request: Request, uploaded_files: list[UploadFile] = File(...)) -> HTMLResponse:
     result_dicts: list[dict[str, str | None]] = []
     for file in uploaded_files:
         if not (
-            file.filename.endswith('.png') or
-            file.filename.endswith('.jpg') or
-            file.filename.endswith('.jpeg') or
-            file.filename.endswith('.webp')
+            file.filename.endswith(".png")
+            or file.filename.endswith(".jpg")
+            or file.filename.endswith(".jpeg")
+            or file.filename.endswith(".webp")
         ):
             continue
         print(file)
@@ -178,13 +204,14 @@ async def run_ocr(
 
     # if not result_dicts:
     #     return templates.TemplateResponse("upload_form.html", {"request": request, "error": "No valid images uploaded."})
-    
+
     # # Store session data, need to add user/session management for this
     # session_state["review_queue"] = result_dicts
     # session_state["current_index"] = 0
     # session_state["stored_paint"] = []
-    
+
     return RedirectResponse("/review", status_code=303)
+
 
 @app.get("/review")
 async def review_image(request: Request) -> HTMLResponse:
@@ -197,7 +224,7 @@ async def review_image(request: Request) -> HTMLResponse:
     # if idx >= len(queue):  # No more images to review
     #     # Redirect to summary page
     #     return RedirectResponse("/summary", status_code=303)
-    
+
     # # Retrieve the current image data
     # img_data: dict[str, str | None] = queue[idx]
     # return templates.TemplateResponse("correct.html", {
@@ -205,23 +232,24 @@ async def review_image(request: Request) -> HTMLResponse:
     #     **img_data
     # })
 
+
 @app.get("/summary", name="summary")
 async def summary(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
-        "summary.html", 
+        "summary.html",
         {
             "request": request,
             "total_images": 0,
             "stored_paints": 0,
-            "colors": ["No paints stored."]
-        }
+            "colors": ["No paints stored."],
+        },
     )
     # TODO: Return a nice summary when paint ocr finishes
     # total_images: int = len(session_state["review_queue"])
     # stored_paints: list[PaintDTO] = session_state["stored_paint"]
     # color_list = [paint.color for paint in stored_paints] if stored_paints else ["No paints stored."]
     # return templates.TemplateResponse(
-    #     "summary.html", 
+    #     "summary.html",
     #     {
     #         "request": request,
     #         "total_images": total_images,
@@ -229,6 +257,7 @@ async def summary(request: Request) -> HTMLResponse:
     #         "colors": color_list
     #     }
     # )
+
 
 @app.post("/correct", name="correction_form")
 async def submit_data(

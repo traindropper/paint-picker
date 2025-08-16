@@ -9,6 +9,7 @@ from dataclasses import dataclass
 class Base(DeclarativeBase):
     pass
 
+
 class Manufacturer(Base):
     __tablename__ = "manufacturers"
 
@@ -18,13 +19,14 @@ class Manufacturer(Base):
 
     paints: Mapped[list["Paint"]] = relationship(back_populates="manufacturer")
 
+
 class Finish(Base):
     __tablename__ = "finishes"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     normalized_name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    
+
     paints: Mapped[list["Paint"]] = relationship(back_populates="finish")
 
 
@@ -37,6 +39,7 @@ class PaintMedium(Base):
 
     paints: Mapped[list["Paint"]] = relationship(back_populates="paint_medium")
 
+
 class Paint(Base):
     __tablename__ = "paints"
 
@@ -46,7 +49,9 @@ class Paint(Base):
     swatch: Mapped[str] = mapped_column(String, nullable=False)
     manufacturer_id: Mapped[int] = mapped_column(ForeignKey("manufacturers.id"), nullable=False)
     finish_id: Mapped[Optional[int]] = mapped_column(ForeignKey("finishes.id"), nullable=True)
-    paint_medium_id: Mapped[Optional[int]] = mapped_column(ForeignKey("paint_mediums.id"), nullable=True)
+    paint_medium_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("paint_mediums.id"), nullable=True
+    )
     quantity_owned: Mapped[int] = mapped_column(Integer, default=0)
 
     manufacturer: Mapped["Manufacturer"] = relationship(back_populates="paints")
@@ -56,7 +61,7 @@ class Paint(Base):
 
 @dataclass
 class PaintDTO:
-    manufacturer: ManufacturerEnum 
+    manufacturer: ManufacturerEnum
     color: str
     swatch: str | None
     finish: FinishEnum | None = None
@@ -66,7 +71,7 @@ class PaintDTO:
 @dataclass
 class PaintUpdateDTO:
     id: int
-    manufacturer: ManufacturerEnum 
+    manufacturer: ManufacturerEnum
     color: str
     swatch: str
     finish: FinishEnum | None = None
@@ -90,10 +95,25 @@ def create_paint_from_dto(dto: PaintDTO, session: Session) -> Paint:
         color=dto.color,
         normalized_color=normalize_string(dto.color),
         swatch=dto.swatch,
-        manufacturer=session.query(Manufacturer).filter_by(normalized_name=normalize_string(dto.manufacturer.value)).one(),
-        finish=session.query(Finish).filter_by(normalized_name=normalize_string(dto.finish.value)).one() if dto.finish else None,
-        paint_medium=session.query(PaintMedium).filter_by(normalized_name=normalize_string(dto.paint_medium.value)).one() if dto.paint_medium else None,
+        manufacturer=session.query(Manufacturer)
+        .filter_by(normalized_name=normalize_string(dto.manufacturer.value))
+        .one(),
+        finish=(
+            session.query(Finish)
+            .filter_by(normalized_name=normalize_string(dto.finish.value))
+            .one()
+            if dto.finish
+            else None
+        ),
+        paint_medium=(
+            session.query(PaintMedium)
+            .filter_by(normalized_name=normalize_string(dto.paint_medium.value))
+            .one()
+            if dto.paint_medium
+            else None
+        ),
     )
+
 
 def sync_all_reference_tables(session: Session):
     sync_enum_to_table(session, ManufacturerEnum, Manufacturer)
