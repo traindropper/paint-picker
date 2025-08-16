@@ -7,14 +7,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, Engine, select
-from src.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium, sync_all_reference_tables
-from src.database_helpers import add_com_ref
+from paint_database_models.models import Base, Paint, PaintDTO, Manufacturer, Finish, PaintMedium, sync_all_reference_tables
+from paint_database_models.database_helpers import add_com_ref, normalize_to_enum, normalize_string
 # from src.paint_parser import parse_image_as_string TODO: OCR
-from src.update_db import upsert_paint, get_or_create_finish, get_or_create_manufacturer, get_or_create_paint_medium
-from src.database_helpers import normalize_to_enum
-from src.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
-from src.schemas import PaintOut, PaintUpdate
-from src.database_helpers import normalize_string
+from paint_database_models.base_classes import FinishEnum, PaintMediumEnum, ManufacturerEnum
+from paint_database_models.schemas import PaintOut, PaintUpdate
+from paint_api.update_db import upsert_paint, get_or_create_finish, get_or_create_manufacturer, get_or_create_paint_medium
 
 # Dependency on DB session
 DATABASE_URL: str = "sqlite:///./paintdb.sqlite3"

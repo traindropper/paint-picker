@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.base_classes import ManufacturerEnum, FinishEnum, PaintMediumEnum
+from paint_database_models.base_classes import ManufacturerEnum, FinishEnum, PaintMediumEnum
 
 class PaintBase(BaseModel):
     color: str

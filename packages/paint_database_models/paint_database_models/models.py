@@ -1,8 +1,8 @@
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase, Session
 from sqlalchemy import String, Integer, ForeignKey
-from src.base_classes import ManufacturerEnum, PaintMediumEnum, FinishEnum
-from src.database_helpers import normalize_string, sync_enum_to_table
+from paint_database_models.base_classes import ManufacturerEnum, PaintMediumEnum, FinishEnum
+from paint_database_models.database_helpers import normalize_string, sync_enum_to_table
 from dataclasses import dataclass
 
 

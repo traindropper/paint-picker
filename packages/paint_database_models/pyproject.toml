@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backed = "setuptools.build_meta"
+
+[project]
+name = "paint_database_models"
+version = "0.1.0"
+description = "Paint databasing models."
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+requires-python = ">=3.13"
+
+dependencies = [
+    "sqlalchemy",
+]
+
+
+[tool.setuptools.package-data]
+paint_database_models = ["py.typed"]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

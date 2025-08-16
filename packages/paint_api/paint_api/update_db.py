@@ -1,9 +1,8 @@
 from typing import Any
 from sqlalchemy.orm import Session
 import logging
-
-from src.models import Manufacturer, Finish, PaintMedium, PaintDTO, Paint
-from src.database_helpers import add_com_ref, normalize_string
+from paint_database_models.models import Manufacturer, Finish, PaintMedium, PaintDTO, Paint
+from paint_database_models.database_helpers import add_com_ref, normalize_string
 from randomcolor import RandomColor
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
