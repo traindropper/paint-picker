@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backed = "setuptools.build_meta"
+
+[project]
+name = "paint_api"
+version = "0.1.0"
+description = "Paint databasing front end api."
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+requires-python = ">=3.13"
+
+dependencies = [
+    "sqlalchemy",
+    "fastapi>=0.116.1",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.20",
+    "aiofiles>=24.1.0",
+    "uvicorn",
+    "randomcolor",
+]
+
+
+[tool.setuptools.package-data]
+paint_database_models = ["py.typed"]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
