@@ -5,6 +5,8 @@ import json
 
 class ManufacturerEnum(str, Enum):
     MR_HOBBY = "Mr. Hobby"
+    TAMIYA = "Tamiya"
+    GAIA_NOTES = "Gaia Notes"
     UNKNOWN = "Unknown"
 
 
